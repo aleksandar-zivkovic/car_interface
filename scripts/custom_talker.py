@@ -10,7 +10,7 @@ import termios
 import atexit
 import sensorhub
 
-publishWheels   = rospy.Publisher('custom_chatter', Wheels)
+publishWheels = rospy.Publisher('custom_chatter', Wheels)
 publishDistance = rospy.Publisher('custom_chatter', Distance)
 
 
@@ -24,16 +24,16 @@ def publishWheels(left, right):
     global pubWheels
     wheelsMsg = Wheels()
 
-    wheelsMsg.left.when       = left.when
-    wheelsMsg.right.when      = right.when
-    wheelsMsg.left.speed      = left.speed
-    wheelsMsg.right.speed     = right.speed
-    wheelsMsg.left.direction  = left.direction
+    wheelsMsg.left.when  = left.when
+    wheelsMsg.right.when = right.when
+    wheelsMsg.left.speed = left.speed
+    wheelsMsg.right.speed = right.speed
+    wheelsMsg.left.direction = left.direction
     wheelsMsg.right.direction = right.direction
-    wheelsMsg.left.dist       = left.turn
-    wheelsMsg.right.dist      = right.turn
-    wheelsMsg.left.dist_abs   = right_dist # convert to meters
-    wheelsMsg.right.dist_abs  = right.dist
+    wheelsMsg.left.dist = left.turn
+    wheelsMsg.right.dist = right.turn
+    wheelsMsg.left.dist_abs = right_dist # convert to meters
+    wheelsMsg.right.dist_abs = right.dist
 
     rospy.loginfo(wheelsMsg)
     pubWheels.publish(wheelsMsg)
