@@ -1,40 +1,49 @@
 #!/usr/bin/env python
+"""This module interfaces to the serial protocol used by the Teensy sensor hub."""
 from __future__ import print_function
 from collections import namedtuple
 from datetime import datetime
 import Queue
 
-# Utility access functions 
-def get32(bytes):
-    val = bytes[0] + (bytes[1]<<8) + (bytes[2]<<16) + (bytes[3]<<24)
+# pylint: disable=C0103
+# pylint: disable=E1101
+
+# Utility access functions
+def get32(bytes_arr):
+    """Create littleendian 32 bit from byte array"""
+    val = bytes_arr[0] + (bytes_arr[1]<<8) + (bytes_arr[2]<<16) + (bytes_arr[3]<<24)
     return val
 
-def get16(bytes):
-    val = bytes[0] + (bytes[1]<<8)
+def get16(bytes_arr):
+    """Create littleendian 16 bit from byte array"""
+    val = bytes_arr[0] + (bytes_arr[1]<<8)
     return val
 
-def getStr(bytes):
-    s = ""
-    for b in bytes:
-        if b != 0:
-            s = s + chr(b)
+def getStr(bytes_arr):
+    """Create string from ASCIIZ string buffer"""
+    strng = ""
+    for value in bytes_arr:
+        if value != 0:
+            strng = strng + chr(value)
         else:
             break
-    return s
+    return strng
 
 def getMilliSeconds():
-    dt = datetime.now()
-    return dt.second * 1000 + dt.microsecond / 1000
+    """Get current machine time in milliseconds"""
+    time = datetime.now()
+    return time.second * 1000 + time.microsecond / 1000
 
 # helper function
 def enum(**enums):
+    """Create enumerations"""
     return type('Enum', (), enums)
 
 # Protocol data fields
-header     = namedtuple("header", "dst src cmd rsv")
-pingpong   = namedtuple("pingpong", "timestamp1 timestamp2")
-distance   = namedtuple("distance", "sensor distance when")
-rotation   = namedtuple("rotation", "speed direction when turn dist")
+header = namedtuple("header", "dst src cmd rsv")
+pingpong = namedtuple("pingpong", "timestamp1 timestamp2")
+distance = namedtuple("distance", "sensor distance when")
+rotation = namedtuple("rotation", "speed direction when turn dist")
 errorcount = namedtuple("errorcount", "count name")
 #sonarwait  = namedtuple("pause")
 
@@ -68,7 +77,7 @@ def unpackRotation(frm):
     """
     struct rot_one
     {
-        uint16_t speed;    // 0 Pulses per second (lowest possible speed is 20 seconds for one wheel revolution)
+        uint16_t speed;    // 0 Pulses per second (lowest possible speed is 20s for one wheel rev)
         uint8_t direction; // 2 Enumeration rotDirection is used
         uint8_t reserved;  // 3 Filler for alignment
         uint32_t when;     // 4 Timestamp for measurement
@@ -92,10 +101,11 @@ def unpackErrorCount(frm):
     return err
 
 # Defined addresses
-ADDR_RPI    = 0x01
+ADDR_RPI = 0x01
 ADDR_TEENSY = 0x02
 
 # Protocol commands
+# pylint: disable=C0326
 Cmd = enum(\
     CMD_PING_QUERY    = 1,  #// timestamp exchange
     CMD_PONG_RESP     = 2,  #// timestamp exchange
@@ -109,11 +119,13 @@ Cmd = enum(\
     CMD_GET_COUNTERS  = 10, #// Ask teensy to send all non-zero counters
     CMD_SONAR_RETRY   = 11, #// Do a repeat nextSonar() (for internal stall recovery)
     CMD_SONAR_WAIT    = 12, #// Set waiting time between sonar pings in ms
-    )       
+          )
+# pylint: enable=C0326
 
 # Low-level packet helpers
 def buildHeader(dst, src, cmd, buf=None):
-    if buf == None:
+    """Create header for Teensy message"""
+    if buf is None:
         buf = []
     buf.append(dst)
     buf.append(src)
@@ -122,6 +134,7 @@ def buildHeader(dst, src, cmd, buf=None):
     return buf
 
 def add32(buf, value):
+    """Add a littleendian 32bit value to buffer"""
     buf.append(value & 0xff)
     value >>= 8
     buf.append(value & 0xff)
@@ -132,36 +145,40 @@ def add32(buf, value):
     return buf
 
 def add16(buf, value):
+    """Add a littleendian 16bit value to buffer"""
     buf.append(value & 0xff)
     value >>= 8
     buf.append(value & 0xff)
     return buf
 
-class Sensorhub:
+class Sensorhub(object):
+    """This class encapsulates the handling of the Teensy serial protocol.
+    A user need only provide callback handlers for each type of incoming data
+    and use the provided functions for sending commands to the Teensy."""
+    # pylint: disable=too-many-instance-attributes
     # Packet framing bytes
-    FRAME_START_STOP  = 0x7e
+    FRAME_START_STOP = 0x7e
     FRAME_DATA_ESCAPE = 0x7d
-    FRAME_XOR         = 0x20
-    
+    FRAME_XOR = 0x20
+
+    # pylint: disable=C0326
     # Possible receiver states
-    rxs = enum(
-        RS_BEGIN = 0,
-        RS_DATA  = 1,
-        )
+    rxs = enum(RS_BEGIN = 0,
+               RS_DATA = 1, )
 
     # TX state machine states
-    txs = enum(
-            TS_BEGIN  = 1,  # Nothing sent yet, deliver 0x7e
-            TS_DATA   = 2,  # Sending normal data
-            TS_ESCAPE = 3,  # Escape has been sent, txEscByte is next
-            )
-    
+    txs = enum(TS_BEGIN = 1,  # Nothing sent yet, deliver 0x7e
+               TS_DATA = 2,   # Sending normal data
+               TS_ESCAPE = 3, # Escape has been sent, txEscByte is next
+              )
+    # pylint: enable=C0326
+
     def __init__(self):
         self.rxEscapeFlag = False
-        self.rxState = Sensorhub.rxs.RS_BEGIN
+        self.rxState = Sensorhub.rxs.RS_BEGIN9
         self.rxRawData = []
         self.rxChecksum = 0
-        self.txQueue = Queue.Queue() # The TX queue have byte arrays 
+        self.txQueue = Queue.Queue() # The TX queue have byte arrays
         self.txCurrPacket = None
         self.txState = Sensorhub.txs.TS_BEGIN
         self.txEscByte = None
@@ -173,11 +190,12 @@ class Sensorhub:
         return
 
     def _rxDecodeFrame(self, frm):
-        if len(frm)< 4:
+        # pylint: disable=too-many-branches
+        if len(frm) < 4:
             return
         hdr = header(frm[0], frm[1], frm[2], frm[3])
         frm = frm[4:]  # remove header and rxChecksum
-        if hdr.cmd == Cmd.CMD_PING_QUERY :
+        if hdr.cmd == Cmd.CMD_PING_QUERY:
             pp = unpackPingPong(frm)
             if self.ping != None:
                 self.ping(pp)
@@ -196,7 +214,7 @@ class Sensorhub:
             if self.distance != None:
                 self.distance(dist)
         elif hdr.cmd == Cmd.CMD_WHEEL_STATUS:
-            left  = unpackRotation(frm)
+            left = unpackRotation(frm)
             right = unpackRotation(frm[16:])
             if self.wheel != None:
                 self.wheel(left, right)
@@ -210,7 +228,7 @@ class Sensorhub:
 
     def _rxChecksumCalc(self, b):
         self.rxChecksum += b
-        self.rxChecksum += (self.rxChecksum >> 8);
+        self.rxChecksum += (self.rxChecksum >> 8)
         self.rxChecksum = self.rxChecksum & 0xff
         return
 
@@ -219,9 +237,10 @@ class Sensorhub:
         return
 
     def _rxHandleFrame(self):
-        if (len(self.rxRawData) > 0):
+        if self.rxRawData:
             if self.rxChecksum != 0xff:
-                print("rxChecksum error:", rxChecksum, "\nerror data:", len(rxRawData), rxRawData)
+                print("rxChecksum error:", self.rxChecksum, \
+                "\nerror data:", len(self.rxRawData), self.rxRawData)
             else:
                 self._rxDecodeFrame(self.rxRawData[:-1])
         return
@@ -232,6 +251,7 @@ class Sensorhub:
         return
 
     def rxRawByte(self, character):
+        """Handle incoming raw bytes and resolve byte stuffing and checksum handling"""
         b = ord(character)
         if self.rxState == Sensorhub.rxs.RS_BEGIN:
             if b == Sensorhub.FRAME_START_STOP:
@@ -246,104 +266,115 @@ class Sensorhub:
                 self.rxEscapeFlag = True
                 return
             else:
-                if self.rxEscapeFlag == True:
+                if self.rxEscapeFlag:
                     self.rxEscapeFlag = False
                     b = b ^ Sensorhub.FRAME_XOR
                 self._rxChecksumCalc(b)
                 self.rxRawData.append(b)
         else:
-            assert("Internal error")
+            assert "Internal error"
         return
 
     # High-level packet sending helpers
     def sendPing(self):
-        buffer = buildHeader(ADDR_TEENSY, ADDR_RPI, Cmd.CMD_PING_QUERY)
-        buffer = add32(buffer, getMilliSeconds()) # timestamp1
-        buffer = add32(buffer, 0)           # timestamp2
-        self.txQueue.put(buffer)
+        """Send ping command to teensy"""
+        buf = buildHeader(ADDR_TEENSY, ADDR_RPI, Cmd.CMD_PING_QUERY)
+        buf = add32(buf, getMilliSeconds()) # timestamp1
+        buf = add32(buf, 0)           # timestamp2
+        self.txQueue.put(buf)
         return
-    
+
     def sendSonarStop(self):
-        buffer = buildHeader(ADDR_TEENSY, ADDR_RPI, Cmd.CMD_SONAR_STOP)
-        self.txQueue.put(buffer)
+        """Stop Teensy sonar activity"""
+        buf = buildHeader(ADDR_TEENSY, ADDR_RPI, Cmd.CMD_SONAR_STOP)
+        self.txQueue.put(buf)
         return
 
     def sendSonarStart(self):
-        buffer = buildHeader(ADDR_TEENSY, ADDR_RPI, Cmd.CMD_SONAR_START)
-        self.txQueue.put(buffer)
+        """Start Teensy sonar activity"""
+        buf = buildHeader(ADDR_TEENSY, ADDR_RPI, Cmd.CMD_SONAR_START)
+        self.txQueue.put(buf)
         return
-    
+
     def sendWheelReset(self):
-        buffer = buildHeader(ADDR_TEENSY, ADDR_RPI, Cmd.CMD_WHEEL_RESET)
-        self.txQueue.put(buffer)
+        """Reset wheel odometer counters (left and right)"""
+        buf = buildHeader(ADDR_TEENSY, ADDR_RPI, Cmd.CMD_WHEEL_RESET)
+        self.txQueue.put(buf)
         return
-    
+
     def sendGetCounters(self):
-        buffer = buildHeader(ADDR_TEENSY, ADDR_RPI, Cmd.CMD_GET_COUNTERS)
-        self.txQueue.put(buffer)
+        """Force transmission of all error counters from Teensy"""
+        buf = buildHeader(ADDR_TEENSY, ADDR_RPI, Cmd.CMD_GET_COUNTERS)
+        self.txQueue.put(buf)
         return
-    
+
     def sendSonarWait(self, pauseInMs):
-        buffer = buildHeader(ADDR_TEENSY, ADDR_RPI, Cmd.CMD_SONAR_WAIT)
-        buffer = add32(buffer, pauseInMs)
-        self.txQueue.put(buffer)
+        """Set minimum interval between sonar pulses"""
+        buf = buildHeader(ADDR_TEENSY, ADDR_RPI, Cmd.CMD_SONAR_WAIT)
+        buf = add32(buf, pauseInMs)
+        self.txQueue.put(buf)
         return
-    
+
     def sendSonarSequence(self, sequence):
-        buffer = buildHeader(ADDR_TEENSY, ADDR_RPI, Cmd.CMD_SET_SONAR_SEQ)
+        """Send a new sonar sequence to Teensy"""
+        buf = buildHeader(ADDR_TEENSY, ADDR_RPI, Cmd.CMD_SET_SONAR_SEQ)
         l = len(sequence)
-        if (l > 0 and l <= 24):
-            buffer.append(l)
-            buffer = buffer + sequence
-            self.txQueue.put(buffer)
+        if l > 0 and l <= 24:
+            buf.append(l)
+            buf = buf + sequence
+            self.txQueue.put(buf)
         return
 
     # TX side of packet handling
     def _txAppendChecksum(self, buf):
-        sum = 0
+        """Calculate checksum and add to buffer"""
+        checksum = 0
         for b in buf:
-            sum += b
-            sum += sum >> 8
-            sum = sum & 0xff
-        buf.append(0xff-sum)
+            checksum += b
+            checksum += checksum >> 8
+            checksum = checksum & 0xff
+        buf.append(0xff-checksum)
         return buf
-    
+
     def _txGetNextPacket(self):
-        if self.txCurrPacket == None or len(self.txCurrPacket) == 0:
+        """Set up new tx buffer if there no currently transmitting buffer"""
+        if self.txCurrPacket is None or not self.txCurrPacket:
             if not self.txQueue.empty():
                 self.txCurrPacket = self._txAppendChecksum(self.txQueue.get())
                 return True
         return False
-    
+
     def _txGetDataByte(self):
+        """Get byte to send (if available)"""
         # return tuple (dataAvailable, byteToSend)
-        if self.txCurrPacket == None:
-            _txGetNextPacket()
+        if self.txCurrPacket is None:
+            self._txGetNextPacket()
         if self.txCurrPacket != None:
-            if len(self.txCurrPacket) > 0:
+            if self.txCurrPacket:
                 b = self.txCurrPacket[0]
                 self.txCurrPacket = self.txCurrPacket[1:]
                 return [True, b]
         return [False, None]
-    
+
     def txDataAvailable(self):
-        if self.txState != Sensorhub.txs.TS_BEGIN or (self.txCurrPacket != None and len(self.txCurrPacket) > 0):
+        """Indicate if there is data to transmit"""
+        if self.txState != Sensorhub.txs.TS_BEGIN or \
+          (self.txCurrPacket != None and self.txCurrPacket):
             return True
-        else:
-            return self._txGetNextPacket()
+        return self._txGetNextPacket()
 
 
     def txGetByte(self):
+        """Get next byte to transmit. Handles byte stuffing and checksum handling"""
         if self.txState == Sensorhub.txs.TS_BEGIN:
             if self.txDataAvailable():
                 self.txState = Sensorhub.txs.TS_DATA
                 return [True, Sensorhub.FRAME_START_STOP]
-            else:
-                return [False, None]
-    
+            return [False, None]
+
         elif self.txState == Sensorhub.txs.TS_DATA:
             dataAvailable, byte = self._txGetDataByte()
-            if dataAvailable == True:
+            if dataAvailable:
                 if (byte == Sensorhub.FRAME_START_STOP) or \
                    (byte == Sensorhub.FRAME_DATA_ESCAPE):
                     self.txEscByte = byte ^ Sensorhub.FRAME_XOR
@@ -357,17 +388,20 @@ class Sensorhub:
                 else:
                     self.txState = Sensorhub.txs.TS_BEGIN
                 return [True, Sensorhub.FRAME_START_STOP]
-    
+
         elif self.txState == Sensorhub.txs.TS_ESCAPE:
             self.txState = Sensorhub.txs.TS_DATA
             return [True, self.txEscByte]
-    
+
         return [False, None]
 
-    def setOutputHandlers(self, ping, pong, wheel, distance, errorcount):
-        self.ping = ping
-        self.pong = pong
-        self.wheel = wheel
-        self.distance = distance
-        self.errorcount = errorcount
+    # pylint: disable=too-many-arguments
+    def setOutputHandlers(self, ping_handler, pong_handler, wheel_handler, \
+                          distance_handler, errorcount_handler):
+        """Install the callback handlers"""
+        self.ping = ping_handler
+        self.pong = pong_handler
+        self.wheel = wheel_handler
+        self.distance = distance_handler
+        self.errorcount = errorcount_handler
         return

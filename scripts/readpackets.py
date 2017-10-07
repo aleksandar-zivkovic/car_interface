@@ -1,70 +1,86 @@
 #!/usr/bin/env python
+"""This module contains a simple example of using the Teensy sensor hub with a terminal."""
 from __future__ import print_function
-import serial
 import select
 import sys
 import termios
 import atexit
-
+import serial
 import sensorhub
 
-def locate(user_string, x=0, y=0):
+# pylint: disable=C0103
+# pylint: disable=W0603
+
+def locate(user_string, cursor_x=0, cursor_y=0):
+    """Position terminal cursor at indicated coordinates"""
     # Don't allow any user errors. Python's own error detection will check for
     # syntax and concatination, etc, etc, errors.
-    x=int(x)
-    y=int(y)
-    if x>=255: x=255
-    if y>=255: y=255
-    if x<=0: x=0
-    if y<=0: y=0
-    HORIZ=str(x)
-    VERT=str(y)
+    _x = int(cursor_x)
+    _y = int(cursor_y)
+    if _x >= 255:
+        _x = 255
+    if _y >= 255:
+        _y = 255
+    if _x <= 0:
+        _x = 0
+    if _y <= 0:
+        _y = 0
+    horiz = str(_x)
+    vert = str(_y)
     # Plot the user_string at the starting at position HORIZ, VERT...
-    print("\033["+VERT+";"+HORIZ+"f"+user_string)
+    print("\033["+vert+";"+horiz+"f"+user_string)
     return
 
 def prettyPrintDist(dist):
+    """Print ultrasound distance sensor at sensors screen position"""
     sensor = dist.sensor
     locate(' {:10} mm'.format(dist.distance), 15*sensor, 1)
     locate(' {:10} ms'.format(dist.when), 1, 8)
-    locate("",0,9)
+    locate("", 0, 9)
     return
 
 def prettyPrintWheels(left, right):
+    """Print wheel odometer data"""
     locate(' {:10} pulses  {:10} pulses'.format(left.dist, right.dist), 1, 3)
-    locate(' {:10} p/s     {:10} p/s'.format(left.speed,     right.speed), 1, 4)
+    locate(' {:10} p/s     {:10} p/s'.format(left.speed, right.speed), 1, 4)
     locate(' {:10} dir     {:10} dir'.format(left.direction, right.direction), 1, 5)
-    locate(' {:10} turn    {:10} turn'.format(left.turn,      right.turn), 1, 6)
+    locate(' {:10} turn    {:10} turn'.format(left.turn, right.turn), 1, 6)
     locate(' {:10} ms'.format(left.when), 1, 8)
-    locate("",0,9)
+    locate("", 0, 9)
     return
 
 def prettyPrintPong(resp):
+    """Print ping time data"""
     now = sensorhub.getMilliSeconds()
     locate('{:10}ms  {:10}ms'.format(now -resp.timestamp1, resp.timestamp2), 25, 8)
     return
 
 errorPos = {}
 errLin = 12
+
 def errorLine(name):
+    """Print error counter at it's own line"""
     global errorPos, errLin
-    if not (name in errorPos):
+    if not name in errorPos:
         errorPos[name] = errLin
         errLin += 1
     return errorPos[name]
 
 def prettyPrintError(err):
+    """Handle error counter"""
     locate("{:20}: {:10}".format(err.name, err.count), 1, errorLine(err.name))
     return
-        
+
 
 def clearScreen():
+    """Send clear screen escape code"""
     print("\033[2J")
     return
 
 
 # User input handling
 def handleKeyPress(sensor, key):
+    """Decode keypresses and act"""
     key = key.upper()
     status = True
     if key == 'P':
@@ -80,17 +96,18 @@ def handleKeyPress(sensor, key):
     elif key == '\x0C':
         clearScreen()
     elif key == 'X':
-        sensor.sendSonarSequence([0,1,5])
+        sensor.sendSonarSequence([0, 1, 5])
     elif key == 'Y':
-        sensor.sendSonarSequence([0,1,2,3,4,5])
+        sensor.sendSonarSequence([0, 1, 2, 3, 4, 5])
     elif key == 'Q':
         status = False
     return status
 
 
-old_settings=None
+old_settings = None
 
 def init_anykey():
+    """ Setup terminal to handle single keystokes directly"""
     global old_settings
     old_settings = termios.tcgetattr(sys.stdin)
     new_settings = termios.tcgetattr(sys.stdin)
@@ -102,26 +119,39 @@ def init_anykey():
     return
 
 def term_anykey():
+    """Reset terminal to "normal" settings when exiting"""
     global old_settings
     if old_settings:
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
     return
+
 B = "\033[1;31m"
 N = "\033[0m"
 
 def main():
+    """Main function"""
     sh = sensorhub.Sensorhub()
-    sh.setOutputHandlers(None, prettyPrintPong, prettyPrintWheels, prettyPrintDist, prettyPrintError)
+    sh.setOutputHandlers(None, \
+                         prettyPrintPong, \
+                         prettyPrintWheels, \
+                         prettyPrintDist, \
+                         prettyPrintError)
     clearScreen()
 
-    locate(B+"P"+N+"ing So"+B+"n"+N+"arstop "+B+"S"+N+"onarstart Wheel"+B+"R"+N+"eset "+B+"C"+N+"ounters "+B+"X"+N+"=seq1 "+B+"Y"+N+"=seq2", 1, 10)
-    if (len(sys.argv) > 1):
+    locate(B+"P"+N+"ing So"+\
+           B+"n"+N+"arstop "+\
+           B+"S"+N+"onarstart Wheel"+\
+           B+"R"+N+"eset "+\
+           B+"C"+N+"ounters "+\
+           B+"X"+N+"=seq1 "+\
+           B+"Y"+N+"=seq2", 1, 10)
+    if len(sys.argv) > 1:
         port = sys.argv[1]
     else:
         port = '/dev/ttyAMA0'
     baud = 115200
     ser = serial.Serial(port, baud, timeout=0)
-    
+
     init_anykey()
     #xpos=1
     while True:

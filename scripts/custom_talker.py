@@ -1,30 +1,61 @@
 #!/usr/bin/env python
+"""This module implements the ROS interface to Teensy sensorhub"""
 from __future__ import print_function
-import rospy
-from beginner_tutorials.msg import Wheels
-from beginner_tutorials.msg import Distance
-import serial
 import select
 import sys
 import termios
 import atexit
+import serial
 import sensorhub
+import rospy
+from beginner_tutorials.msg import Wheels
+from beginner_tutorials.msg import Distance
+from beginner_tutorials.msg import Error
+from beginner_tutorials.msg import PingPong
 
-publishWheels = rospy.Publisher('custom_chatter', Wheels)
-publishDistance = rospy.Publisher('custom_chatter', Distance)
+# pylint: disable=C0103
+# pylint: disable=W0603
 
+# ROS topic names
+PING_TOPIC_NAME = "teensy_ping"
+WHEEL_TOPIC_NAME = 'teensy_wheel'
+DISTANCE_TOPIC_NAME = 'teensy_distance'
+ERROR_TOPIC_NAME = "teensy_error"
 
-def publishPing(ping):
+# ROS Publishers
+publishWheels = None
+publishDistance = None
+publishPingPong = None
+publishError = None
+
+def setupPublishers():
+    """Initialize interface objects for publishing teensy topics"""
+    global publishWheels
+    global publishDistance
+    global publishPingPong
+    global publishError
+    publishWheels = rospy.Publisher(WHEEL_TOPIC_NAME, Wheels, queue_size=1)
+    publishDistance = rospy.Publisher(DISTANCE_TOPIC_NAME, Distance, queue_size=1)
+    publishPingPong = rospy.Publisher(PING_TOPIC_NAME, PingPong, queue_size=1)
+    publishError = rospy.Publisher(ERROR_TOPIC_NAME, Error, queue_size=1)
     return
 
-def publishPong(ping):
+def handlePingPong(ping):
+    """Handle ping or pong message. Used to determine delay in comms with Teensy"""
+    global publishPingPong
+    PingpongMsg = PingPong()
+    PingpongMsg.timestamp1 = ping.timestamp1
+    PingpongMsg.timestamp2 = ping.timestamp2
+    rospy.loginfo(PingpongMsg)
+    publishPingPong.publish(PingpongMsg)
     return
 
-def publishWheels(left, right):
-    global pubWheels
+def handleWheels(left, right):
+    """Handle wheel odometer messages. Data for left and right wheel are separate"""
+    global publishWheels
     wheelsMsg = Wheels()
 
-    wheelsMsg.left.when  = left.when
+    wheelsMsg.left.when = left.when
     wheelsMsg.right.when = right.when
     wheelsMsg.left.speed = left.speed
     wheelsMsg.right.speed = right.speed
@@ -32,40 +63,101 @@ def publishWheels(left, right):
     wheelsMsg.right.direction = right.direction
     wheelsMsg.left.dist = left.turn
     wheelsMsg.right.dist = right.turn
-    wheelsMsg.left.dist_abs = right_dist # convert to meters
+    wheelsMsg.left.dist_abs = right.dist # convert to meters
     wheelsMsg.right.dist_abs = right.dist
-
     rospy.loginfo(wheelsMsg)
-    pubWheels.publish(wheelsMsg)
-
+    publishWheels.publish(wheelsMsg)
     return
 
-def publishDist(dist):
+def handleDist(dist):
+    """Handle distance measurements from ultrasound sensors"""
     global publishDistance
     distanceMsg = Distance()
     distanceMsg.sensor = dist.sensor
     distanceMsg.distance = dist.distance # convert from us to m
     distanceMsg.when = dist.when  # adjust time to RPi time
+    rospy.loginfo(distanceMsg)
+    publishDistance.publish(distanceMsg)
     return
 
-def publishError(error):
+def handleError(error):
+    """Handle error counter updates from Teensy"""
+    global publishError
+    errorMsg = Error()
+    errorMsg.count = error.count
+    errorMsg.name = error.name
+    rospy.loginfo(errorMsg)
+    publishError.publish(errorMsg)
     return
 
+old_settings = None
+
+def init_anykey():
+    """Setup stdin to handle single keypresses. This is primitive way to have some control"""
+    global old_settings
+    old_settings = termios.tcgetattr(sys.stdin)
+    new_settings = termios.tcgetattr(sys.stdin)
+    new_settings[3] = new_settings[3] & ~(termios.ECHO | termios.ICANON) # lflags
+    new_settings[6][termios.VMIN] = 0  # cc
+    new_settings[6][termios.VTIME] = 0 # cc
+    termios.tcsetattr(sys.stdin, termios.TCSADRAIN, new_settings)
+    atexit.register(term_anykey)
+    return
+
+def term_anykey():
+    """Restore terminal input setting. Called from atexit handler"""
+    global old_settings
+    if old_settings:
+        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+    return
+
+# User input handling
+def handleKeyPress(sensor, key):
+    """Handle single keypresses as commands to Teensy"""
+    key = key.upper()
+    status = True
+    if key == 'P':
+        sensor.sendPing()
+    elif key == 'N':
+        sensor.sendSonarStop()
+    elif key == 'S':
+        sensor.sendSonarStart()
+    elif key == 'R':
+        sensor.sendWheelReset()
+    elif key == 'C':
+        sensor.sendGetCounters()
+    elif key == 'X':
+        sensor.sendSonarSequence([0, 1, 5])
+    elif key == 'Y':
+        sensor.sendSonarSequence([0, 1, 2, 3, 4, 5])
+    elif key == 'Q':
+        status = False
+    return status
 
 def talker():
+    """Main function of Teensy ROS interface"""
+    # TODO: this is a hack, using the old code to read keyboad directly.
+    # Replace with ROS oriented implementation
+    init_anykey()
+
+    setupPublishers()
     rospy.init_node('custom_talker', anonymous=True)
-    r = rospy.Rate(10) #10hz
+    #r = rospy.Rate(10) #10hz
 
     sh = sensorhub.Sensorhub()
-    sh.setOutputHandlers(publishPing, publishPong, publishWheels, publishDist, publishError)
+    sh.setOutputHandlers(handlePingPong, handlePingPong, handleWheels, handleDist, handleError)
 
-    msg = Wheels()
-    msg.left.speed = 17
-    msg.left.direction = 0
-    msg.left.dist = 0
+    # TODO: Get serial port setting to teensy connection - check ROS config parameter handling
+    if len(sys.argv) > 1:
+        port = sys.argv[1]
+    else:
+        port = '/dev/ttyAMA0'
+    baud = 115200
+    ser = serial.Serial(port, baud, timeout=0)
 
     while not rospy.is_shutdown():
         if sh.txDataAvailable():
+            # If we have tx data when also wait to serial tx readiness
             txList = [ser]
         else:
             txList = []
@@ -92,4 +184,5 @@ def talker():
 if __name__ == '__main__':
     try:
         talker()
-    except rospy.ROSInterruptException: pass
+    except rospy.ROSInterruptException:
+        pass
