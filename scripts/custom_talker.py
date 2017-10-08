@@ -17,7 +17,7 @@ from teensy_sensor_hub.msg import PingPong
 # pylint: disable=W0603
 
 # ROS topic names
-PING_TOPIC_NAME = "teensy_ping"
+PING_TOPIC_NAME = "teensy_pong"
 WHEEL_TOPIC_NAME = 'teensy_wheel'
 DISTANCE_TOPIC_NAME = 'teensy_distance'
 ERROR_TOPIC_NAME = "teensy_error"
@@ -57,13 +57,13 @@ def handleWheels(left, right):
 
     wheelsMsg.left.when = left.when
     wheelsMsg.right.when = right.when
-    wheelsMsg.left.speed = left.speed
+    wheelsMsg.left.speed = left.speed #TODO: m/s
     wheelsMsg.right.speed = right.speed
     wheelsMsg.left.direction = left.direction
     wheelsMsg.right.direction = right.direction
     wheelsMsg.left.dist = left.turn
     wheelsMsg.right.dist = right.turn
-    wheelsMsg.left.dist_abs = right.dist # convert to meters
+    wheelsMsg.left.dist_abs = right.dist #TODO: convert to meters
     wheelsMsg.right.dist_abs = right.dist
     rospy.loginfo(wheelsMsg)
     publishWheels.publish(wheelsMsg)

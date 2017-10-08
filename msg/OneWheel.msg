@@ -8,5 +8,3 @@ uint32 when
 uint32 dist
 # Absolute distance travelled
 uint32 dist_abs
-
-
