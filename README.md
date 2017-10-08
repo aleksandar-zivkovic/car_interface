@@ -91,3 +91,5 @@ Move to `./catkin_ws/src` and extract the repository there
 
 This should end up with a path like `~/catkin_ws/src/teensy_sensor_hub`
 
+From directory `./catkin_ws` run `catkin_make`, followed by `catkin_make install`
+
