@@ -175,7 +175,7 @@ class Sensorhub(object):
 
     def __init__(self):
         self.rxEscapeFlag = False
-        self.rxState = Sensorhub.rxs.RS_BEGIN9
+        self.rxState = Sensorhub.rxs.RS_BEGIN
         self.rxRawData = []
         self.rxChecksum = 0
         self.txQueue = Queue.Queue() # The TX queue have byte arrays
@@ -325,9 +325,9 @@ class Sensorhub(object):
             self.txQueue.put(buf)
         return
 
-    # TX side of packet handling
     def _txAppendChecksum(self, buf):
-        """Calculate checksum and add to buffer"""
+        """TX side of packet handling.
+        Calculate checksum and add to buffer"""
         checksum = 0
         for b in buf:
             checksum += b
@@ -345,8 +345,8 @@ class Sensorhub(object):
         return False
 
     def _txGetDataByte(self):
-        """Get byte to send (if available)"""
-        # return tuple (dataAvailable, byteToSend)
+        """Get byte to send (if available) and return
+        tuple (dataAvailable, byteToSend)"""
         if self.txCurrPacket is None:
             self._txGetNextPacket()
         if self.txCurrPacket != None:

@@ -17,42 +17,42 @@ from teensy_sensor_hub.msg import PingPong
 # pylint: disable=W0603
 
 # ROS topic names
-PING_TOPIC_NAME = "teensy_pong"
+PONG_TOPIC_NAME = "teensy_pong"
 WHEEL_TOPIC_NAME = 'teensy_wheel'
 DISTANCE_TOPIC_NAME = 'teensy_distance'
 ERROR_TOPIC_NAME = "teensy_error"
 
 # ROS Publishers
-publishWheels = None
-publishDistance = None
-publishPingPong = None
-publishError = None
+_publishWheels = None
+_publishDistance = None
+_publishPingPong = None
+_publishError = None
 
 def setupPublishers():
     """Initialize interface objects for publishing teensy topics"""
-    global publishWheels
-    global publishDistance
-    global publishPingPong
-    global publishError
-    publishWheels = rospy.Publisher(WHEEL_TOPIC_NAME, Wheels, queue_size=1)
-    publishDistance = rospy.Publisher(DISTANCE_TOPIC_NAME, Distance, queue_size=1)
-    publishPingPong = rospy.Publisher(PING_TOPIC_NAME, PingPong, queue_size=1)
-    publishError = rospy.Publisher(ERROR_TOPIC_NAME, Error, queue_size=1)
+    global _publishWheels
+    global _publishDistance
+    global _publishPingPong
+    global _publishError
+    _publishWheels = rospy.Publisher(WHEEL_TOPIC_NAME, Wheels, queue_size=1)
+    _publishDistance = rospy.Publisher(DISTANCE_TOPIC_NAME, Distance, queue_size=1)
+    _publishPingPong = rospy.Publisher(PONG_TOPIC_NAME, PingPong, queue_size=1)
+    _publishError = rospy.Publisher(ERROR_TOPIC_NAME, Error, queue_size=1)
     return
 
 def handlePingPong(ping):
     """Handle ping or pong message. Used to determine delay in comms with Teensy"""
-    global publishPingPong
+    global _publishPingPong
     PingpongMsg = PingPong()
     PingpongMsg.timestamp1 = ping.timestamp1
     PingpongMsg.timestamp2 = ping.timestamp2
     rospy.loginfo(PingpongMsg)
-    publishPingPong.publish(PingpongMsg)
+    _publishPingPong.publish(PingpongMsg)
     return
 
 def handleWheels(left, right):
     """Handle wheel odometer messages. Data for left and right wheel are separate"""
-    global publishWheels
+    global _publishWheels
     wheelsMsg = Wheels()
 
     wheelsMsg.left.when = left.when
@@ -66,36 +66,36 @@ def handleWheels(left, right):
     wheelsMsg.left.dist_abs = right.dist #TODO: convert to meters
     wheelsMsg.right.dist_abs = right.dist
     rospy.loginfo(wheelsMsg)
-    publishWheels.publish(wheelsMsg)
+    _publishWheels.publish(wheelsMsg)
     return
 
 def handleDist(dist):
     """Handle distance measurements from ultrasound sensors"""
-    global publishDistance
+    global _publishDistance
     distanceMsg = Distance()
     distanceMsg.sensor = dist.sensor
     distanceMsg.distance = dist.distance # convert from us to m
     distanceMsg.when = dist.when  # adjust time to RPi time
     rospy.loginfo(distanceMsg)
-    publishDistance.publish(distanceMsg)
+    _publishDistance.publish(distanceMsg)
     return
 
 def handleError(error):
     """Handle error counter updates from Teensy"""
-    global publishError
+    global _publishError
     errorMsg = Error()
     errorMsg.count = error.count
     errorMsg.name = error.name
     rospy.loginfo(errorMsg)
-    publishError.publish(errorMsg)
+    _publishError.publish(errorMsg)
     return
 
-old_settings = None
+_old_settings = None
 
 def init_anykey():
     """Setup stdin to handle single keypresses. This is primitive way to have some control"""
-    global old_settings
-    old_settings = termios.tcgetattr(sys.stdin)
+    global _old_settings
+    _old_settings = termios.tcgetattr(sys.stdin)
     new_settings = termios.tcgetattr(sys.stdin)
     new_settings[3] = new_settings[3] & ~(termios.ECHO | termios.ICANON) # lflags
     new_settings[6][termios.VMIN] = 0  # cc
@@ -106,9 +106,9 @@ def init_anykey():
 
 def term_anykey():
     """Restore terminal input setting. Called from atexit handler"""
-    global old_settings
-    if old_settings:
-        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+    global _old_settings
+    if _old_settings:
+        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, _old_settings)
     return
 
 # User input handling
