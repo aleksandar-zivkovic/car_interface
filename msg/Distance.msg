@@ -4,4 +4,3 @@ uint8 sensor
 uint16 distance
 # Time when data was measured
 uint32 when
-
