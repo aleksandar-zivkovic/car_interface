@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-  <name>teensy_sensor_hub</name>
+  <name>car_interface</name>
   <version>0.0.1</version>
   <description>The Teensy sensor hub package</description>
 

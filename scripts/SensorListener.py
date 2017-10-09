@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import rospy
-from beginner_tutorials.msg import Wheels
+from car_interface.msg import Wheels
 
 def callback(data):
     rospy.loginfo("Speed %d direction %d distance %d" % (data.left.speed, data.left.direction, data.left.dist))

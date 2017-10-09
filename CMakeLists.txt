@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(teensy_sensor_hub)
+project(car_interface)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -59,9 +59,9 @@ add_message_files(
 
 ## Generate services in the 'srv' folder
 add_service_files(
-  #FILES
+  FILES
   #AddTwoInts.srv
-  #Teensy.srv
+  TeensyCommand.srv
 )
 
 ## Generate actions in the 'action' folder
