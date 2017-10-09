@@ -1,5 +1,5 @@
-# Teensy Sensor Hub #
-This is a ROS node to interface with the Teensy sensor hub.
+# Car Interface #
+This is a ROS node to interface with the Teensy sensor hub and the PWM servo hat on the EB challenge car.
 
 ## Configuration parmeters
 
