@@ -8,10 +8,10 @@ import atexit
 import serial
 import sensorhub
 import rospy
-from teensy_sensor_hub.msg import Wheels
-from teensy_sensor_hub.msg import Distance
-from teensy_sensor_hub.msg import Error
-from teensy_sensor_hub.msg import PingPong
+from car_interface.msg import Wheels
+from car_interface.msg import Distance
+from car_interface.msg import Error
+from car_interface.msg import PingPong
 
 # pylint: disable=C0103
 # pylint: disable=W0603
