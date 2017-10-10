@@ -8,12 +8,12 @@ import car_interface.msg
 
 class FibonacciAction(object):
     # create messages that are used to publish feedback/result
-    _feedback = actionlib_tutorials.msg.FibonacciFeedback()
-    _result = actionlib_tutorials.msg.FibonacciResult()
+    _feedback = car_interface.msg.FibonacciFeedback()
+    _result = car_interface.msg.FibonacciResult()
 
     def __init__(self, name):
         self._action_name = name
-        self._as = actionlib.SimpleActionServer(self._action_name, actionlib_tutorials.msg.FibonacciAction, execute_cb=self.execute_cb, auto_start = False)
+        self._as = actionlib.SimpleActionServer(self._action_name, car_interface.msg.FibonacciAction, execute_cb=self.execute_cb, auto_start = False)
         self._as.start()
 
     def execute_cb(self, goal):
