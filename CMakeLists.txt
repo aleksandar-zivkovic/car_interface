@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
   message_generation
+  actionlib_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -60,21 +61,21 @@ add_message_files(
 ## Generate services in the 'srv' folder
 add_service_files(
   FILES
-  #AddTwoInts.srv
   TeensyCommand.srv
 )
 
 ## Generate actions in the 'action' folder
-# add_action_files(
-#   FILES
-#   Action1.action
+add_action_files(
+  FILES
+  fibonacci.action
 #   Action2.action
-# )
+)
 
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
   DEPENDENCIES
   std_msgs
+  actionlib_msgs
 )
 
 ################################################
@@ -111,6 +112,7 @@ catkin_package(
 #  LIBRARIES car_interface
 #  CATKIN_DEPENDS roscpp rospy std_msgs
    CATKIN_DEPENDS message_runtime
+   CATKIN_DEPENDS actionlib_msgs
 #  DEPENDS system_lib
 )
 
