@@ -1,8 +1,17 @@
 #!/usr/bin/python
 import sys
 import time
-#sys.path.append('Adafruit-Raspberry-Pi-Python-Code/Adafruit_PWM_Servo_Driver')
 from Adafruit_PWM_Servo_Driver import PWM
+
+SERVO_REFRESH_FREQUENCY = 50 # refresh rate 50 updates/s i.e. 20ms cycle
+
+# The PWM signal has 4096 intervals for each cycle
+# A pulse of length 220 @50Hz is (1/50)*220/4096 = 1.074ms
+# A servo is controlled with a pulse length between 1ms and 2ms, i.e. a 1ms variation
+# With a 50Hz / 20ms period, usable servo range is divided into 4096/20 = 204 steps
+# For a better resolution the cycle frequency can be increased.
+# With a 200Hz / 5ms period, usable servo range is divided into 4096/5 = 819 steps
+# Not all servos (or motor controllers) can accept 200Hz refresh rate, but increasing it allows better resolution
 
 servoMin = 220  # Min pulse length out of 4096
 servoMax = 520  # Max pulse length out of 4096
@@ -36,7 +45,7 @@ MOTOR_BRAKING_DELAY = 0.3
 class CarControl(object):
     def __init__(self):
         self._pwm = PWM(0x40)    # I2C address 
-        self._pwm.setPWMFreq(50) # refresh rate 50 updates/s i.e. 20ms cycle
+        self._pwm.setPWMFreq(SERVO_REFRESH_FREQUENCY)
         self.motor_stop_and_center()
         self.reset_steering()
         return
