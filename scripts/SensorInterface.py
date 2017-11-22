@@ -65,7 +65,7 @@ def handleWheels(left, right):
     wheelsMsg.right.dist = right.turn
     wheelsMsg.left.dist_abs = right.dist #TODO: convert to meters
     wheelsMsg.right.dist_abs = right.dist
-    rospy.loginfo(wheelsMsg)
+    #rospy.loginfo(wheelsMsg)
     _publishWheels.publish(wheelsMsg)
     return
 
@@ -76,7 +76,7 @@ def handleDist(dist):
     distanceMsg.sensor = dist.sensor
     distanceMsg.distance = dist.distance # convert from us to m
     distanceMsg.when = dist.when  # adjust time to RPi time
-    rospy.loginfo(distanceMsg)
+    #rospy.loginfo(distanceMsg)
     _publishDistance.publish(distanceMsg)
     return
 
