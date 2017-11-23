@@ -8,8 +8,11 @@ from car_control import CarControl
 from car_interface.msg import Wheels
 
 car_controller = None
+global_stop = False
 
 def cmd_vel_callback(msg):
+    if global_stop:
+        return
     rospy.loginfo("Received a /cmd_vel message!")
     rospy.loginfo("Linear Components: [%f, %f, %f]"%(msg.linear.x, msg.linear.y, msg.linear.z))
     rospy.loginfo("Angular Components: [%f, %f, %f]"%(msg.angular.x, msg.angular.y, msg.angular.z))
@@ -27,6 +30,8 @@ def cmd_vel_callback(msg):
 
 def teensy_wheel_callback(msg):
     global car_controller
+    if global_stop:
+        return
     #rospy.loginfo(msg)
     rospy.loginfo("Received a /teensy_wheel message! [%u %u] "%(msg.left.direction, msg.left.dist))
     if msg.left.direction > 0:
@@ -36,13 +41,22 @@ def teensy_wheel_callback(msg):
         car_controller.steer_right()
         car_controller.reverse()
     return
- 
+
+def shutdown():
+    global car_controller
+    global global_stop
+    global_stop = True
+    print("shutdown called")
+    car_controller.motor_stop_and_center()
+    return
+
 def listener():
     global car_controller
     car_controller = CarControl()
     rospy.init_node('cmd_vel_listener')
     rospy.Subscriber("/cmd_vel", Twist, cmd_vel_callback)
     rospy.Subscriber("/teensy_wheel", Wheels, teensy_wheel_callback)
+    rospy.on_shutdown(shutdown)
     rospy.spin()
     return
  
