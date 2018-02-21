@@ -58,6 +58,7 @@ add_message_files(
   Distance.msg
   Error.msg
   PingPong.msg
+  Movement.msg
 )
 
 ## Generate services in the 'srv' folder

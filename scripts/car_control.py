@@ -83,7 +83,7 @@ class CarControl(object):
 
     def sensor_braking(self):
         global gas_pedal
-        # ACTIVE BREAK OPPOSITE DIRECTION
+        # ACTIVE BRAKE OPPOSITE DIRECTION
         self.throttle = -MOTOR_BRAKING_FORCE
         time.sleep(MOTOR_BRAKING_DELAY)
         self.throttle = 0
@@ -127,7 +127,7 @@ class CarControl(object):
 
     def stop_and_reset(self):
         self.throttle = 0
-        self.active_breaking()
+        self.active_braking()
         self.motor_stop_and_center()
         self.reset_steering()
         return

@@ -13,6 +13,15 @@ from car_interface.msg import Distance
 from car_interface.msg import Error
 from car_interface.msg import PingPong
 
+from car_control import CarControl
+# MOTOR_MAX_THROTTLE_PERCENTAGE = 50
+# MOTOR_MAX_REVERSE_PERCENTAGE = -50
+# MOTOR_STEP_SIZE_PERCENT = 5
+# MOTOR_BREAKING_FORCE = 5
+# MOTOR_BREAKING_DELAY = 0.3
+
+cc = CarControl()
+
 # pylint: disable=C0103
 # pylint: disable=W0603
 
@@ -133,7 +142,7 @@ def handleKeyPress(sensor, key):
     elif key == 'Q':
         status = False
     return status
-
+        
 def talker():
     """Main function of Teensy ROS interface"""
     # TODO: this is a hack, using the old code to read keyboad directly.
@@ -179,6 +188,7 @@ def talker():
             flagAndByte = sh.txGetByte()
             if flagAndByte[0]:
                 ser.write(chr(flagAndByte[1]))
+
     return
 
 if __name__ == '__main__':
