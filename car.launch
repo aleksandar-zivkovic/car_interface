@@ -1,0 +1,5 @@
+<launch>
+    <node name="MovementListener" pkg="car_interface" type="MovementListener" />
+    <node name="MovementTalker" pkg="car_interface" type="MovementTalker" />
+    <node name="SensorInterface" pkg="car_interface" type="SensorInterface" />
+</launch>
